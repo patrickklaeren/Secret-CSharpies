@@ -1,0 +1,143 @@
+@inject SantaService Santa
+@inject AuthenticationStateProvider Authentication
+<EditForm Model="form" OnSubmit="Submit" FormName="participation" class="participation-form">
+    <div class="form-intro">@if (Person.SubmittedUtc is not null)
+        {
+            <span class="tag">YOUR WISH LIST</span>
+        }
+        <h3>Secret-CSharper Registration</h3></div>
+    @if (message is not null)
+    {
+        <div class="notice @(failed ? "error" : "success")" role="status">@message</div>
+    }
+    <fieldset class="with-subheader">
+        <legend><span>01</span> Gift Preferences</legend>
+        <p class="hint">You can choose to be a giver in the event some folks are left without a match for whatever reason.</p>
+        <div class="form-grid"><label>Region
+                <InputSelect @bind-Value="form.Country">
+                    <option value="">Choose your region</option>
+                    @foreach (var region in Countries.Regions)
+                    {
+                        <option value="@region.Key">@region.Value</option>
+                    }
+                </InputSelect>
+            </label>
+            <div><span class="field-label">I’d like to…</span><label class="check">
+                    <InputCheckbox @bind-Value="form.Send"/>
+                    Send gifts</label><label class="check">
+                    <InputCheckbox @bind-Value="form.Receive" @bind-Value:after="ReceiveChanged"/>
+                    Receive gifts</label></div>
+        </div>
+        <div class="form-grid">
+            <label>What would you like to receive?
+                <InputSelect @bind-Value="form.GiftPreference" disabled="@(!form.Receive)">
+                    @foreach (var preference in Enum.GetValues<GiftPreference>())
+                    {
+                        <option value="@preference">@Labels.Gift(preference)</option>
+                    }
+                </InputSelect>
+            </label>
+            @if (form.Send)
+            {
+                <label>What’s your shipping preference?
+                    <InputSelect @bind-Value="form.ShippingPreference">@foreach (var preference in Enum.GetValues<ShippingPreference>())
+                        {
+                            <option value="@preference">@Labels.Shipping(preference)</option>
+                        }
+                    </InputSelect>
+                </label>
+            }
+        </div>
+    </fieldset>
+    @if (form.Receive)
+    {
+        <fieldset class="with-subheader">
+            <legend><span>02</span> Receipt shipping information</legend>
+            <p class="hint">Physical gifts need a postal name and address shared with at least two people: the organizer and your Santa. A home, Amazon locker,
+                or another delivery spot is fine. Keep address lines in postal order.</p>
+            <div class="form-grid"><label>Postal name
+                    <InputText @bind-Value="form.Name" maxlength="300" autocomplete="name"/>
+                </label><label>Phone <span class="optional">optional</span>
+                    <InputText @bind-Value="form.Phone" maxlength="300" autocomplete="tel" placeholder="Helpful for international delivery issues."/>
+                </label>
+                <label>Address line 1
+                    <InputText @bind-Value="form.Line1" maxlength="300" autocomplete="address-line1"/>
+                </label><label>Address line 2
+                    <InputText @bind-Value="form.Line2" maxlength="300" autocomplete="address-line2"/>
+                </label>
+                <label>Address line 3
+                    <InputText @bind-Value="form.Line3" maxlength="300" autocomplete="address-line3"/>
+                </label><label>Address line 4
+                    <InputText @bind-Value="form.Line4" maxlength="300"/>
+                </label>
+            </div>
+            <label>Other notes / digital delivery details
+                <InputTextArea @bind-Value="form.ContactNotes" maxlength="4000" rows="3"
+                               placeholder="Steam name, digital delivery address, wishlist link, or delivery instructions…"/>
+                <small>Required for digital-only gifts. Include any details your Santa needs to send them.</small></label>
+        </fieldset>
+        <fieldset class="with-subheader">
+            <legend><span>03</span> Helpful hints to your santa</legend>
+            <p class="hint">Add any notes about yourself that will help your Santa find something. We're nerds and socially awkward, this process is hard
+                enough, so help them along pls. And no, you may not ask for more codex resets.</p>
+            <label>Notes to your secret Santa
+                <InputTextArea @bind-Value="form.Bio" maxlength="4000" rows="5"
+                               placeholder="Maybe a little souvenir from your local area? Bonus points for coffee!"/>
+            </label>
+        </fieldset>
+    }
+    <div class="form-actions">
+        <button class="button" type="submit"
+                disabled="@busy">@(busy ? "Saving…" : Person.SubmittedUtc is null ? "Count me in ↗" : "Save my wish list ↗")</button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] [EditorRequired] public Participant Person { get; set; } = new();
+    [Parameter] public EventCallback Saved { get; set; }
+    private Participant form = new();
+    private Participant? previous;
+    private bool busy, failed;
+    private string? message;
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(previous, Person))
+        {
+            form = Person.Copy();
+            previous = Person;
+        }
+    }
+
+    private void ReceiveChanged()
+    {
+        if (!form.Receive)
+            form.GiftPreference = GiftPreference.GiveOnly;
+        else if (form.GiftPreference == GiftPreference.GiveOnly)
+            form.GiftPreference = GiftPreference.Anything;
+    }
+
+    private async Task Submit()
+    {
+        busy = true;
+        message = null;
+
+        try
+        {
+            await Santa.SaveParticipationAsync((await Authentication.GetAuthenticationStateAsync()).User, form);
+            failed = false;
+            message = "You’re on the list. Your wish list has been saved.";
+            await Saved.InvokeAsync();
+        }
+        catch (InvalidOperationException e)
+        {
+            failed = true;
+            message = e.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+}

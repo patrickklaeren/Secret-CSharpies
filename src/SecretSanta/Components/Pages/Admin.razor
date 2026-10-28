@@ -1,0 +1,289 @@
+@inject SantaService Santa
+@inject DatabaseVault Vault
+@inject AuthenticationStateProvider Authentication
+@inject IJSRuntime JS
+<PageTitle>Admin — Secret CSharpies</PageTitle>
+<section class="content-section admin">
+    <AccountControls ShowExchange="true"/>
+    @if (message is not null)
+    {
+        <div class="notice @(failed ? "error" : "success")" role="status">@message</div>
+    }
+    @if (!Vault.IsUnlocked)
+    {
+        <section class="panel unlock">
+            <EditForm Model="this" OnSubmit="Unlock" FormName="unlock">
+                <label>Database password
+                    <InputText type="password" @bind-Value="password" autocomplete="off" maxlength="1024"/>
+                </label>
+                <button class="button" disabled="@busy">@(busy ? "Opening…" : Vault.IsInitialized ? "Unlock event" : "Create encrypted database")</button>
+            </EditForm>
+        </section>
+    }
+    else if (data is not null)
+    {
+        <div class="stats">
+            <div><strong>@data.People.Count(p => !p.Removed)</strong><span>Signed in</span></div>
+            <div><strong>@data.People.Count(p => !p.Removed && p.SubmittedUtc != null)</strong><span>Forms submitted</span></div>
+            <div><strong>@data.People.Count(p => !p.Removed && p.SubmittedUtc == null)</strong><span>Still to fill out</span></div>
+            <div><strong>@data.Matches.Count(m => m.Status != ShipmentStatus.Preparing)<small>
+                        / @data.Matches.Count</small></strong><span>Shipped or delivered</span></div>
+        </div>
+        <div class="admin-config">
+            <section class="panel"><h2>Event settings</h2>
+                <EditForm Model="settings" OnSubmit="SaveSettings" FormName="settings">
+                    <div class="date-inputs"><label>Lock-in
+                            <InputDate @bind-Value="settings.LockInUtc"/>
+                        </label><label>Distribution
+                            <InputDate @bind-Value="settings.DistributionUtc"/>
+                        </label><label>Ship-by
+                            <InputDate @bind-Value="settings.ShipByUtc"/>
+                        </label></div>
+                    <p class="hint">Enter UTC calendar dates. Each takes effect at 00:00 UTC; visitors see their local date. Blank dates leave that phase
+                        unscheduled.</p>
+                    <label>Greeting to include with copied details
+                        <InputTextArea @bind-Value="settings.Greeting" maxlength="4000" rows="4"/>
+                    </label>
+                    <button class="button" disabled="@busy">Save event settings</button>
+                </EditForm>
+            </section>
+            <section class="panel draw-panel"><h2>Draw</h2>
+                <p class="hint">Available after lock-in. Complete draws are saved; incomplete draws leave existing assignments unchanged.</p>
+                <button class="button" disabled="@busy" @onclick="Draw">@(data.Matches.Count > 0 ? "Redraw" : "Draw")</button>
+                @if (data.Cycle.DrawnUtc is not null)
+                {
+                    <small>Saved draw: @data.Cycle.DrawnUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</small>
+                }
+            </section>
+        </div>
+
+        @if (attempt is { Complete: false })
+        {
+            <section class="notice error"><h3>Incomplete draw</h3>
+                <p>@attempt.Pairs.Count possible matches. This attempt was not saved.</p>
+                <ul>@foreach (var problem in attempt.Problems)
+                    {
+                        <li>@problem</li>
+                    }
+                </ul>
+                <details>
+                    <summary>Preview compatible pairs</summary>
+                    @foreach (var pair in attempt.Pairs)
+                    {
+                        <p>@@@Person(pair.SenderId).Username → @@@Person(pair.RecipientId).Username</p>
+                    }
+                </details>
+            </section>
+        }
+
+        @if (data.Matches.Count > 0)
+        {
+            <section class="list-section">
+                <div class="section-heading">
+                    <div><h2>Assignments</h2>
+                        <p>Click a name to copy that person’s details with the greeting.</p></div>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Santa / sender</th>
+                            <th>Recipient</th>
+                            <th>Gift status</th>
+                            <th>Estimated arrival</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var match in data.Matches)
+                        {
+                            <tr>
+                                <td>
+                                    <button class="copy-button" @onclick="() => Copy(match.SenderId)">@@@Person(match.SenderId).Username <span
+                                            aria-hidden="true">⧉</span></button>
+                                </td>
+                                <td>
+                                    <button class="copy-button" @onclick="() => Copy(match.RecipientId)">@@@Person(match.RecipientId).Username <span
+                                            aria-hidden="true">⧉</span></button>
+                                </td>
+                                <td><span class="tag">@match.Status</span></td>
+                                <td>@(match.EstimatedArrival?.ToString("dd MMM yyyy") ?? "Not shared")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        @if (copyFallback is not null)
+        {
+            <section class="panel"><h3>Copy these details</h3>
+                <p>Your browser blocked clipboard access. Select and copy the text below.</p><textarea aria-label="Contact details to copy" rows="10"
+                                                                                                       readonly>@copyFallback</textarea>
+                <button class="text-button" @onclick="() => copyFallback = null">Close</button>
+            </section>
+        }
+
+        <section class="list-section">
+            <div class="section-heading"><h2>Participants</h2><label class="search-label">Find a participant<input @bind="search" @bind:event="oninput"
+                                                                                                                   placeholder="Search Discord username…"
+                                                                                                                   type="search"/></label></div>
+            @if (data.People.Count == 0)
+            {
+                <div class="panel empty">No participants.</div>
+            }
+            @foreach (var person in data.People.Where(p => p.Username.Contains(search, StringComparison.OrdinalIgnoreCase)))
+            {
+                <details class="participant-row" @key="person.DiscordId">
+                    <summary><span class="participant-name">@if (person.AvatarUrl is not null)
+                            {
+                                <img src="@person.AvatarUrl" width="36" height="36" alt=""/>
+                            }
+                            <strong>@@@person.Username</strong></span><span>@Countries.Name(person.Country)</span><span
+                            class="tag">@(person.Removed ? "Removed" : person.SubmittedUtc is null ? "Form pending" : "Submitted")</span><span
+                            aria-hidden="true">＋</span></summary>
+                    <div class="participant-details">
+                        <dl>
+                            <dt>Discord ID</dt>
+                            <dd>@person.DiscordId</dd>
+                            <dt>First signed in (UTC)</dt>
+                            <dd>@person.FirstSeenUtc.ToString("yyyy-MM-dd HH:mm")</dd>
+                            <dt>Submitted / last updated (UTC)</dt>
+                            <dd>@person.SubmittedUtc?.ToString("yyyy-MM-dd HH:mm") / @person.UpdatedUtc?.ToString("yyyy-MM-dd HH:mm")</dd>
+                            <dt>Participation</dt>
+                            <dd>@(person.Send ? "Send gifts" : "") @(person.Receive ? "Receive gifts" : "")</dd>
+                            <dt>Gift preference</dt>
+                            <dd>@Labels.Gift(person.GiftPreference)</dd>
+                            <dt>Shipping</dt>
+                            <dd>@Labels.Shipping(person.ShippingPreference)</dd>
+                            <dt>Sharing consent</dt>
+                            <dd>@(person.Consent ? "Given" : "Not given / not applicable")</dd>
+                            <dt>Postal name &amp; address</dt>
+                            <dd class="preserve-lines">@string.Join("\n", new[] { person.Name, person.Line1, person.Line2, person.Line3, person.Line4 })</dd>
+                            <dt>Phone</dt>
+                            <dd>@person.Phone</dd>
+                            <dt>Other / digital details</dt>
+                            <dd class="preserve-lines">@person.ContactNotes</dd>
+                            <dt>Notes to Santa</dt>
+                            <dd class="preserve-lines">@person.Bio</dd>
+                        </dl>
+                        <button class="danger-button" disabled="@busy"
+                                @onclick="() => ToggleRemoved(person)">@(person.Removed ? "Restore participant" : "Remove participant")</button>
+                        <small>Changing membership clears all saved matches and shipment updates. Draw again and redistribute details afterward.</small>
+                    </div>
+                </details>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private AdminDashboard? data;
+    private SantaCycle settings = new();
+    private DrawResult? attempt;
+    private ClaimsPrincipal user = new();
+    private string password = "", search = "";
+    private string? message, copyFallback;
+    private bool busy, failed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = (await Authentication.GetAuthenticationStateAsync()).User;
+        await Refresh();
+    }
+
+    private Participant Person(string id) => data!.People.Single(p => p.DiscordId == id);
+
+    private async Task Run(Func<Task> action)
+    {
+        busy = true;
+        failed = false;
+        message = null;
+
+        try
+        {
+            await action();
+        }
+        catch (Exception e) when (e is InvalidOperationException or UnauthorizedAccessException)
+        {
+            failed = true;
+            message = e.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task Load()
+    {
+        if (!Vault.IsUnlocked)
+            return;
+
+        data = await Santa.AdminAsync(user);
+        settings = new SantaCycle { LockInUtc = data.Cycle.LockInUtc, DistributionUtc = data.Cycle.DistributionUtc, ShipByUtc = data.Cycle.ShipByUtc, Greeting = data.Cycle.Greeting };
+    }
+
+    private Task Refresh() => Run(Load);
+
+    private Task Unlock() => Run(async () =>
+    {
+        try
+        {
+            var initialize = !Vault.IsInitialized;
+            await Santa.UnlockAsync(user, password, initialize);
+            message = "The database is unlocked. The event is available to everyone.";
+            await Load();
+        }
+        finally
+        {
+            password = "";
+        }
+    });
+
+    private Task SaveSettings() => Run(async () =>
+    {
+        await Santa.ConfigureAsync(user, settings);
+        await Load();
+        message = "Event settings saved.";
+    });
+
+    private Task Draw() => Run(async () =>
+    {
+        if (data!.Matches.Count > 0 && !await JS.InvokeAsync<bool>("confirm", "Redraw all assignments? This replaces saved matches and clears shipment updates. If details were already sent, you must redistribute them."))
+            return;
+
+        attempt = await Santa.DrawAsync(user);
+        await Load();
+        message = attempt.Complete ? $"All {attempt.Pairs.Count} assignments saved. Ready to spread the word." : "A complete draw was not possible. Review the conflicts below.";
+        failed = !attempt.Complete;
+    });
+
+    private Task ToggleRemoved(Participant person) => Run(async () =>
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"{(person.Removed ? "Restore" : "Remove")} @{person.Username}? Any saved matches and shipment updates will be cleared. You’ll need to draw again."))
+            return;
+
+        await Santa.SetRemovedAsync(user, person.DiscordId, !person.Removed);
+        attempt = null;
+        await Load();
+        message = "Participant updated. Draw again when the list is ready.";
+    });
+
+    private Task Copy(string id) => Run(async () =>
+    {
+        var text = await Santa.CopyDetailsAsync(user, id);
+
+        try
+        {
+            await JS.InvokeVoidAsync("santa.copy", text);
+            message = $"Copied @{Person(id).Username}’s details.";
+            copyFallback = null;
+        }
+        catch (JSException)
+        {
+            copyFallback = text;
+        }
+    });
+
+}

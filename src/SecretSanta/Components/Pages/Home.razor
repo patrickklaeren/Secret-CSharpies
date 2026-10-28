@@ -1,0 +1,102 @@
+@page "/"
+@inject DatabaseVault Vault
+@inject SantaService Santa
+@inject AuthenticationStateProvider Authentication
+@inject TimeProvider Clock
+<PageTitle>Secret C#ies - 2026</PageTitle>
+@if (Santa.IsAdmin(user) && View != "exchange")
+{
+    <Admin/>
+}
+else
+{
+    @if (dashboard is null || !Vault.IsUnlocked)
+    {
+        <section class="quiet-landing" aria-label="Secret CSharpies">
+            <AccountControls/>
+        </section>
+    }
+
+    @if (Vault.IsUnlocked && !string.IsNullOrEmpty(Login))
+    {
+        <div class="notice error"
+             role="alert">@(Login == "unconfigured" ? "Discord sign-in is not configured yet. Ask the organizer to set the app credentials." : "Discord sign-in did not finish. Please try again.")</div>
+    }
+
+    @if (error is not null)
+    {
+        <div class="notice error" role="alert">@error</div>
+    }
+
+    @if (dashboard is not null && Vault.IsUnlocked)
+    {
+        <section class="content-section" id="participation">
+            <AccountControls/>
+            <CycleTimeline Cycle="dashboard.Cycle"/>
+            @if (dashboard.Person.Removed)
+            {
+                <div class="notice">An organizer removed your participation. Contact them if you’d like to rejoin.</div>
+            }
+            else
+            {
+                @if (!dashboard.Cycle.Locked(Clock.GetUtcNow().UtcDateTime))
+                {
+                    <ParticipationForm Person="dashboard.Person" Saved="Load"/>
+                }
+                else
+                {
+                    <div class="panel"><span class="tag">@(dashboard.Person.SubmittedUtc is null ? "NOT PARTICIPATING" : "YOU’RE ON THE LIST")</span>
+                        <h3>@(dashboard.Person.SubmittedUtc is null ? "Sign-ups have closed." : "Your wishes are safely tucked away.")</h3>
+                        <p>@(dashboard.Person.SubmittedUtc is null ? "Contact an organizer if you need help." : "Your form is locked. The organizers will send your match details through Discord.")</p>
+                    </div>
+                }
+
+                @if (dashboard.Outgoing is not null || dashboard.Incoming is not null)
+                {
+                    <div class="shipment-grid">
+                        @if (dashboard.Outgoing is not null)
+                        {
+                            <ShipmentEditor Shipment="dashboard.Outgoing" Saved="Load"/>
+                        }
+                        @if (dashboard.Incoming is { } incoming)
+                        {
+                            <section class="panel"><span class="eyebrow dark">FROM YOUR SECRET SANTA</span>
+                                <h3>@(incoming.Status == ShipmentStatus.Preparing ? "Something good is in the works." : incoming.Status == ShipmentStatus.Shipped ? "A little joy is on its way." : "Your gift has arrived!")</h3>
+                                <p>Status: <strong>@incoming.Status</strong></p>
+                                <p>Estimated arrival: <strong>@(incoming.EstimatedArrival?.ToString("dd MMM yyyy") ?? "Not shared yet")</strong></p><small>Your
+                                    Santa’s identity stays a surprise.</small></section>
+                        }
+                    </div>
+                }
+            }
+        </section>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "login")] public string? Login { get; set; }
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+    private ClaimsPrincipal user = new();
+    private Dashboard? dashboard;
+    private string? error;
+    protected override async Task OnParametersSetAsync() => await Load();
+
+    private async Task Load()
+    {
+        error = null;
+        user = (await Authentication.GetAuthenticationStateAsync()).User;
+
+        if (!Vault.IsUnlocked || user.Identity?.IsAuthenticated != true)
+            return;
+
+        try
+        {
+            dashboard = await Santa.DashboardAsync(user);
+        }
+        catch (InvalidOperationException e)
+        {
+            error = e.Message;
+        }
+    }
+
+}

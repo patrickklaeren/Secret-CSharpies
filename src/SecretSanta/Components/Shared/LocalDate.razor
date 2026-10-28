@@ -1,0 +1,15 @@
+@inject IJSRuntime JS
+<time @ref="element" datetime="@Iso" title="@($"{Value:yyyy-MM-dd} at 00:00 UTC")">@(Value?.ToString("dd MMM yyyy") ?? "To be announced")</time>
+
+@code {
+    [Parameter] public DateTime? Value { get; set; }
+    private ElementReference element;
+    private string? Iso => Value is null ? null : DateTime.SpecifyKind(Value.Value, DateTimeKind.Utc).ToString("O");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Iso is not null)
+            await JS.InvokeVoidAsync("santa.localDate", element, Iso);
+    }
+
+}

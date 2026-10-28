@@ -1,0 +1,44 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject IWebHostEnvironment Environment
+<div class="winter-effects" aria-hidden="true" @ref="scene">
+    <div class="snowfall">
+        @for (var i = 0; i < 350; i++)
+        {
+            var n = i;
+            <i class="snowflake" style="@Flake(n)"></i>
+        }
+    </div>
+    <div class="skaters"></div>
+</div>
+
+@code {
+    private ElementReference scene;
+    private bool started;
+    private static string Flake(int i) => FormattableString.Invariant($"--x:{i * 73.31 % 100:F2}vw;--size:{1 + i % 3 * 2}px;--duration:{9 + i % 19}s;--delay:-{i % 29}s;--drift:{i % 30 - 15}vw;--opacity:{0.25 + i % 7 * 0.1:F2}");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var files = Environment.WebRootFileProvider.GetDirectoryContents("assets/padoru")
+            .Where(f => !f.IsDirectory && f.Name.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)).Select(f => "/assets/padoru/" + f.Name).ToArray();
+
+        await JS.InvokeVoidAsync("santa.startWinter", scene, files);
+        started = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (started)
+            try
+            {
+                await JS.InvokeVoidAsync("santa.stopWinter", scene);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+    }
+
+}

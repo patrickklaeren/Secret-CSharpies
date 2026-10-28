@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+**/App_Data/
+**/*.db
+**/*.db-*
+**/*.db.*
+.env
+.agents/
+.vscode/
+TestResults/
+artifacts/

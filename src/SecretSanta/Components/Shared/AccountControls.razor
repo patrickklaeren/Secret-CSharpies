@@ -1,0 +1,30 @@
+@inject SantaService Santa
+<nav class="account-controls" aria-label="Account">
+    <AuthorizeView Context="auth">
+        <Authorized>
+            @if (auth.User.FindFirstValue("avatar") is { } avatar)
+            {
+                <img class="account-avatar" src="@avatar" alt="@($"{auth.User.Identity?.Name}’s Discord avatar")" width="72" height="72"/>
+            }
+            <form method="post" action="/auth/logout">
+                <AntiforgeryToken/>
+                <button class="present-button" type="submit" aria-label="Sign out" title="Sign out"><span aria-hidden="true">🎁</span><span
+                        class="present-label">Sign out</span></button>
+            </form>
+            @if (Santa.IsAdmin(auth.User) && !ShowExchange)
+            {
+                <a class="account-link" href="/">Admin</a>
+            }
+            @if (ShowExchange)
+            {
+                <a class="account-link" href="/?view=exchange">My participation</a>
+            }
+        </Authorized>
+        <NotAuthorized>
+            <a class="present-button" href="/auth/login" aria-label="Sign in with Discord" title="Sign in with Discord"><span aria-hidden="true">🎁</span><span
+                    class="present-label">Sign in</span></a>
+        </NotAuthorized>
+    </AuthorizeView>
+</nav>
+
+@code { [Parameter] public bool ShowExchange { get; set; } }

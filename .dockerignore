@@ -1,0 +1,10 @@
+**/bin
+**/obj
+.git
+.codex
+.agents
+.env
+**/App_Data
+**/*.db*
+tests
+artifacts

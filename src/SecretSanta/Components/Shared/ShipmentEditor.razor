@@ -1,0 +1,59 @@
+@inject SantaService Santa
+@inject AuthenticationStateProvider Authentication
+<section class="panel"><span class="eyebrow dark">YOUR GIFT’S JOURNEY</span>
+    <h3>Keep the anticipation going.</h3>
+    <EditForm Model="this" OnSubmit="Save" FormName="shipment">
+        <label>Gift status
+            <InputSelect @bind-Value="status">@foreach (var choice in Enum.GetValues<ShipmentStatus>())
+                {
+                    <option value="@choice">@choice</option>
+                }
+            </InputSelect>
+        </label>
+        <label>Estimated arrival
+            <InputDate @bind-Value="eta"/>
+        </label>
+        <p class="hint">Digital gift sent? Choose delivered. You can update this whenever plans change.</p>
+        @if (message is not null)
+        {
+            <p role="status">@message</p>
+        }
+        <button class="button" disabled="@busy">Update gift status</button>
+    </EditForm>
+</section>
+
+@code {
+    [Parameter] [EditorRequired] public ShipmentView Shipment { get; set; } = new(ShipmentStatus.Preparing, null, null);
+    [Parameter] public EventCallback Saved { get; set; }
+    private ShipmentStatus status;
+    private DateOnly? eta;
+    private string? message;
+    private bool busy;
+
+    protected override void OnParametersSet()
+    {
+        status = Shipment.Status;
+        eta = Shipment.EstimatedArrival;
+    }
+
+    private async Task Save()
+    {
+        busy = true;
+
+        try
+        {
+            await Santa.SaveShipmentAsync((await Authentication.GetAuthenticationStateAsync()).User, status, eta);
+            message = "Saved. Your recipient can now see this update.";
+            await Saved.InvokeAsync();
+        }
+        catch (InvalidOperationException e)
+        {
+            message = e.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+}
