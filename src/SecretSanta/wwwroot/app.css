@@ -843,6 +843,23 @@ dd {
     transform-origin: center bottom
 }
 
+.padoru-sprite {
+    position: relative;
+    height: 100%;
+    isolation: isolate
+}
+
+.padoru-sprite .padoru-avatar {
+    position: absolute;
+    z-index: -1;
+    left: calc(34% - 8px);
+    top: 25%;
+    width: 52%;
+    height: 52%;
+    border-radius: 50%;
+    object-fit: cover
+}
+
 .padoru-trick.spin {
     animation: spin 1.2s 4s ease-in-out
 }
@@ -1141,7 +1158,7 @@ dd {
     text-decoration: underline
 }
 
-.skater.reverse img {
+.skater.reverse .padoru-sprite {
     transform: scaleX(-1)
 }
 

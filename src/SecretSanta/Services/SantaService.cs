@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using SecretSanta.Data;
 
 namespace SecretSanta.Services;
@@ -10,8 +11,23 @@ public sealed record Dashboard(Participant Person, SantaCycle Cycle, ShipmentVie
 
 public sealed record AdminDashboard(SantaCycle Cycle, List<Participant> People, List<GiftMatch> Matches);
 
-public sealed class SantaService(DatabaseVault vault, IConfiguration config, TimeProvider clock)
+public sealed class SantaService(DatabaseVault vault, IConfiguration config, TimeProvider clock, IMemoryCache cache)
 {
+    public async Task<string?> RandomParticipantAvatarAsync()
+    {
+        if (!vault.IsUnlocked)
+            return null;
+
+        var avatars = await cache.GetOrCreateAsync("ParticipantAvatarUrls", entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(4);
+            return vault.UseAsync(db => db.Participants
+                .Where(p => p.SubmittedUtc != null && !p.Removed && p.AvatarUrl != null && p.AvatarUrl != "")
+                .Select(p => p.AvatarUrl!).ToListAsync());
+        });
+        return avatars is not { Count: > 0 } ? null : avatars[Random.Shared.Next(avatars.Count)];
+    }
+
     public bool IsAdmin(ClaimsPrincipal user) => user.Identity?.IsAuthenticated == true &&
         !string.IsNullOrWhiteSpace(config["AdminDiscordId"]) &&
         string.Equals(user.FindFirstValue(ClaimTypes.NameIdentifier), config["AdminDiscordId"], StringComparison.Ordinal);

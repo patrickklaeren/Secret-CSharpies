@@ -6,7 +6,7 @@ window.santa = {
     copy(text) {
         return navigator.clipboard.writeText(text);
     },
-    startWinter(element, files) {
+    startWinter(element, files, participants) {
         this.stopWinter(element);
         if (!files.length) return;
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -15,7 +15,7 @@ window.santa = {
         const schedule = () => {
             state.timer = setTimeout(skate, 1000 + Math.random() * 1000);
         };
-        const skate = () => {
+        const skate = async () => {
             if (!element.isConnected) return this.stopWinter(element);
             if (reducedMotion.matches || document.hidden) {
                 schedule();
@@ -23,9 +23,32 @@ window.santa = {
             }
             const skater = document.createElement('div');
             const trick = document.createElement('div');
+            const sprite = document.createElement('div');
+            sprite.className = 'padoru-sprite';
             const img = document.createElement('img');
             img.alt = '';
             img.src = files[Math.floor(Math.random() * files.length)];
+            if (Math.random() < 1 / 6) {
+                try {
+                    const avatarUrl = await participants.invokeMethodAsync('RandomParticipantAvatar');
+                    if (avatarUrl) {
+                        const avatar = document.createElement('img');
+                        avatar.alt = '';
+                        avatar.className = 'padoru-avatar';
+                        avatar.src = avatarUrl;
+                        await avatar.decode();
+                        sprite.append(avatar);
+                        img.src = '/assets/padoru/padoru-blank.webp';
+                    }
+                } catch {
+                    // Keep the pre-built skater if the avatar or circuit is unavailable.
+                }
+            }
+            if (element.winterState !== state || !element.isConnected) return;
+            if (reducedMotion.matches || document.hidden) {
+                schedule();
+                return;
+            }
             const spin = Math.random() < 0.09, jump = Math.random() < 0.12;
             trick.className = `padoru-trick${spin ? ' spin' : ''}${jump ? ' jump' : ''}`;
             skater.className = `skater skating${Math.random() < 0.5 ? ' reverse' : ''}`;
@@ -40,7 +63,8 @@ window.santa = {
                 skater.animate(keyframes.map(value => ({bottom: `${value}%`, easing: 'ease-in-out'})), timing);
                 trick.animate(keyframes.map(value => ({scale: `${1 - (value - 2) / 20 * 0.3}`, easing: 'ease-in-out'})), timing);
             }
-            trick.append(img);
+            sprite.append(img);
+            trick.append(sprite);
             skater.append(trick);
             skater.addEventListener('animationend', event => {
                 if (event.target === skater) skater.remove();

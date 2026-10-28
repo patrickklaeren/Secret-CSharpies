@@ -12,6 +12,7 @@ using SecretSanta.Services;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DatabaseVault>();
 builder.Services.AddSingleton(builder.Configuration.GetSection("Backup").Get<BackupOptions>() ?? new BackupOptions());
