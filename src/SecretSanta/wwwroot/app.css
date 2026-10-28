@@ -1145,12 +1145,12 @@ dd {
 
 .account-menu-dropdown button {
     white-space: nowrap;
-    padding: 12px 20px;
+    padding: 14px 24px;
     border: 1px solid #c4eaff40;
     border-radius: 8px;
     background: #16384c;
     color: #fff3d6;
-    font-size: 1rem
+    font-size: 1.125rem
 }
 
 .present-button {
@@ -1161,7 +1161,7 @@ dd {
     border: 1px solid #c4eaff40;
     border-radius: 8px;
     background: #16384c66;
-    padding: 12px 20px;
+    padding: 14px 24px;
     color: inherit;
     text-decoration: none;
     cursor: pointer;
@@ -1170,7 +1170,7 @@ dd {
 
 .present-button > span:first-child {
     font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
-    font-size: 1rem;
+    font-size: 1.125rem;
     line-height: 1.15;
     filter: drop-shadow(0 3px 8px #00151c60)
 }
