@@ -42,6 +42,34 @@ For a standalone image build (the normal launch path remains Aspire):
 docker build -t secret-csharpies .
 ```
 
+## Encrypted R2 backups
+
+The app checks for a backup on startup and every hour while the database is unlocked. It briefly pauses database operations, completes a WAL checkpoint, and reads the encrypted database into memory before releasing the lock. Uploading does not block participants. No plaintext copy or database password is written to the backup. This requires the documented single-instance deployment and no external database writers.
+
+For Aspire, configure the optional AppHost parameters using user secrets:
+
+```powershell
+dotnet user-secrets set "Parameters:backup-endpoint" "https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com" --project src/SecretSanta.AppHost
+dotnet user-secrets set "Parameters:backup-bucket" "YOUR_PRIVATE_BUCKET" --project src/SecretSanta.AppHost
+dotnet user-secrets set "Parameters:backup-access-key-id" "YOUR_R2_ACCESS_KEY_ID" --project src/SecretSanta.AppHost
+dotnet user-secrets set "Parameters:backup-secret-access-key" "YOUR_R2_SECRET_ACCESS_KEY" --project src/SecretSanta.AppHost
+```
+
+Both credential parameters are marked secret. All four parameters default to empty, keeping backups disabled until configured. Restart the exact AppHost after changing its parameter values. Aspire passes the parameters to the web app as the following environment variables, which can also be configured directly on a standalone web container:
+
+```text
+Backup__Endpoint=https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+Backup__Bucket=YOUR_PRIVATE_BUCKET
+Backup__AccessKeyId=YOUR_R2_ACCESS_KEY_ID
+Backup__SecretAccessKey=YOUR_R2_SECRET_ACCESS_KEY
+```
+
+Use the S3 API endpoint shown by R2, including any jurisdiction suffix. Create an R2 Object Read & Write token restricted to this bucket. Keep the access keys in local user secrets or deployment secrets, never source control. Leave `Database__Password` unset for manual unlocking; backups use the already unlocked database and require no restart or password re-entry. Restart the web resource after changing backup settings. Missing settings disable backups; incomplete settings log an error.
+
+SHA-256 is calculated over the encrypted snapshot. An unchanged hash skips the upload. The last successfully uploaded hash and destination are recorded as a fingerprint in `santa.db.r2-backup` beside the database, so restarts do not cause duplicate uploads. Changed snapshots are uploaded under dated `backups/*.db` keys, with the SHA-256 in the filename and object metadata. Upload failures preserve the previous fingerprint and retry on the next hourly run. Check application logs for success, skips, or failures. No backups are deleted automatically; do not expire every object by age, because an unchanged database may have only an older backup.
+
+To recover after losing the VPS: download the newest successful snapshot, verify its SHA-256 against its filename, stop the replacement app, and place the snapshot in its database directory as `santa.db`. Use a fresh directory without old WAL/SHM files or a backup fingerprint. Start the app and manually unlock with your original database password. The app will back it up again on its next unlocked hourly check. During final teardown, delete the R2 backups as well as the VPS data. Hourly backups can lose up to an hour of changes; failed uploads extend that window.
+
 ## Event workflow
 
 1. Set lock-in, distribution, and ship-by dates, and the copy-message greeting in Workshop. Dates are stored as midnight **UTC**; the site displays the boundary in the visitor's local timezone. A boundary can therefore display as the preceding local calendar day. Admin date inputs are explicitly UTC. An unset date does not activate its phase. Shipment ETA is a calendar date, not a timestamp.
@@ -67,15 +95,11 @@ dotnet run --project src/SecretSanta
 
 Open `https://localhost:7088` and register `https://localhost:7088/signin-discord` for that local launch. The HTTPS launch profile redirects local HTTP requests on port 5088 to HTTPS. Without credentials, the snowy unavailable landing page still runs. Local encrypted data goes into `src/SecretSanta/App_Data` (ignored by Git). No authentication bypass or sample users are shipped.
 
-## Verification
+## Build
 
 ```powershell
 dotnet build SecretCSharpies.slnx
-dotnet test tests/SecretSanta.Tests
-node tests/winter.test.cjs
 ```
-
-Tests cover maximum matching against exhaustive small-group solutions, domestic optimization, gift incompatibilities, give-only/receive-only combinations, SQLCipher file encryption and wrong-password rejection, restart/unlock, server-enforced deadlines and permissions, removal, redraw behavior, copy output, shipment privacy, and the locked landing page/artwork response. Test databases live in uniquely named temporary folders and are deleted afterward.
 
 ## Artwork and snowfall
 

@@ -1,17 +1,23 @@
 @inject SantaService Santa
 @inject AuthenticationStateProvider Authentication
 <EditForm Model="form" OnSubmit="Submit" FormName="participation" class="participation-form">
-    <div class="form-intro">@if (Person.SubmittedUtc is not null)
+    <div class="form-intro">
+        <h3 @ref="heading" tabindex="-1">Secret-CSharper Registration</h3></div>
+    <ol class="form-progress" aria-label="Registration progress">
+        @for (var i = 1; i <= 3; i++)
         {
-            <span class="tag">YOUR WISH LIST</span>
+            <li aria-current="@(step == i ? "step" : null)" class="@(step > i ? "complete" : null)"><span>@i</span>@StepNames[i - 1]</li>
         }
-        <h3>Secret-CSharper Registration</h3></div>
+    </ol>
+    <span class="sr-only" role="status">Step @step of 3: @StepNames[step - 1]</span>
     @if (message is not null)
     {
         <div class="notice @(failed ? "error" : "success")" role="status">@message</div>
     }
+    @if (step == 1)
+    {
     <fieldset class="with-subheader">
-        <legend><span>01</span> Gift Preferences</legend>
+        <legend>Gift Preferences</legend>
         <p class="hint">You can choose to be a giver in the event some folks are left without a match for whatever reason.</p>
         <div class="form-grid"><label>Region
                 <InputSelect @bind-Value="form.Country">
@@ -49,12 +55,16 @@
             }
         </div>
     </fieldset>
-    @if (form.Receive)
+    }
+    @if (step == 2)
     {
         <fieldset class="with-subheader">
-            <legend><span>02</span> Receipt shipping information</legend>
-            <p class="hint">Physical gifts need a postal name and address shared with at least two people: the organizer and your Santa. A home, Amazon locker,
-                or another delivery spot is fine. Keep address lines in postal order.</p>
+            <legend>Delivery details</legend>
+            @if (form.Receive)
+            {
+            <p class="hint">Delivery details are shared with the organizer and your Santa. For physical gifts, use a home, locker, or another delivery spot.</p>
+            @if (form.GiftPreference != GiftPreference.Digital)
+            {
             <div class="form-grid"><label>Postal name
                     <InputText @bind-Value="form.Name" maxlength="300" autocomplete="name"/>
                 </label><label>Phone <span class="optional">optional</span>
@@ -71,24 +81,46 @@
                     <InputText @bind-Value="form.Line4" maxlength="300"/>
                 </label>
             </div>
+            }
             <label>Other notes / digital delivery details
-                <InputTextArea @bind-Value="form.ContactNotes" maxlength="4000" rows="3"
+                <InputTextArea @bind-Value="form.ContactNotes" maxlength="4000" rows="2"
                                placeholder="Steam name, digital delivery address, wishlist link, or delivery instructions…"/>
                 <small>Required for digital-only gifts. Include any details your Santa needs to send them.</small></label>
+            }
+            else
+            {
+                <p class="hint">You’re giving only, so we don’t need your delivery details. Continue to confirm your participation.</p>
+            }
         </fieldset>
+    }
+    @if (step == 3)
+    {
         <fieldset class="with-subheader">
-            <legend><span>03</span> Helpful hints to your santa</legend>
+            <legend>@(form.Receive ? "Helpful hints to your Santa" : "Ready to join")</legend>
+            @if (form.Receive)
+            {
             <p class="hint">Add any notes about yourself that will help your Santa find something. We're nerds and socially awkward, this process is hard
                 enough, so help them along pls. And no, you may not ask for more codex resets.</p>
             <label>Notes to your secret Santa
                 <InputTextArea @bind-Value="form.Bio" maxlength="4000" rows="5"
                                placeholder="Maybe a little souvenir from your local area? Bonus points for coffee!"/>
             </label>
+            }
+            else
+            {
+                <p>You’re joining as a gift giver. Thanks for making someone’s winter brighter.</p>
+            }
+            <p class="hint">@form.Country · @(form.Send && form.Receive ? "Sending and receiving" : form.Send ? "Giving only" : "Receiving only")</p>
         </fieldset>
     }
     <div class="form-actions">
+        @if (step > 1)
+        {
+            <button class="text-button" type="button" @onclick="Back" disabled="@busy">← Back</button>
+        }
+        <span class="step-count">Step @step of 3</span>
         <button class="button" type="submit"
-                disabled="@busy">@(busy ? "Saving…" : Person.SubmittedUtc is null ? "Count me in ↗" : "Save my wish list ↗")</button>
+                disabled="@busy">@(step < 3 ? "Continue →" : busy ? "Saving…" : Person.SubmittedUtc is null ? "Count me in ↗" : "Save my wish list ↗")</button>
     </div>
 </EditForm>
 
@@ -99,6 +131,26 @@
     private Participant? previous;
     private bool busy, failed;
     private string? message;
+    private int step = 1;
+    private static readonly string[] StepNames = ["Preferences", "Delivery", "Wish list"];
+    private ElementReference heading;
+    private bool focusHeading;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusHeading)
+        {
+            focusHeading = false;
+            await heading.FocusAsync(preventScroll: true);
+        }
+    }
+
+    private void Back()
+    {
+        step--;
+        message = null;
+        focusHeading = true;
+    }
 
     protected override void OnParametersSet()
     {
@@ -119,6 +171,26 @@
 
     private async Task Submit()
     {
+        if (busy)
+            return;
+
+        if (step < 3)
+        {
+            try
+            {
+                form.Validate(step);
+                step++;
+                message = null;
+                focusHeading = true;
+            }
+            catch (InvalidOperationException e)
+            {
+                failed = true;
+                message = e.Message;
+            }
+            return;
+        }
+
         busy = true;
         message = null;
 

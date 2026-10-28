@@ -52,7 +52,9 @@ public sealed class Participant
 
     public Participant Copy() => (Participant)MemberwiseClone();
 
-    public void Validate()
+    public void Validate() => Validate(3);
+
+    public void Validate(int throughStep)
     {
         if (!Countries.All.ContainsKey(Country))
             throw new InvalidOperationException("Choose your region.");
@@ -69,20 +71,29 @@ public sealed class Participant
         if (!Receive)
             GiftPreference = GiftPreference.GiveOnly;
 
+        if (throughStep == 1)
+            return;
+
         if (Receive && GiftPreference != GiftPreference.Digital && (string.IsNullOrWhiteSpace(Name) || string.IsNullOrWhiteSpace(Line1)))
             throw new InvalidOperationException("Physical gifts need a postal name and address (at least line 1).");
 
         if (Receive && GiftPreference == GiftPreference.Digital && string.IsNullOrWhiteSpace(ContactNotes))
             throw new InvalidOperationException("Add a digital delivery address, username, or wishlist in other notes.");
 
-        if (Receive && string.IsNullOrWhiteSpace(Bio))
-            throw new InvalidOperationException("Give your Santa a few ideas in your notes.");
-
         foreach (var value in new[] { Name, Phone, Line1, Line2, Line3, Line4 })
             if (value.Length > 300)
                 throw new InvalidOperationException("Address fields must be 300 characters or fewer.");
 
-        if (ContactNotes.Length > 4000 || Bio.Length > 4000)
+        if (ContactNotes.Length > 4000)
+            throw new InvalidOperationException("Notes must be 4,000 characters or fewer.");
+
+        if (throughStep == 2)
+            return;
+
+        if (Receive && string.IsNullOrWhiteSpace(Bio))
+            throw new InvalidOperationException("Give your Santa a few ideas in your notes.");
+
+        if (Bio.Length > 4000)
             throw new InvalidOperationException("Notes must be 4,000 characters or fewer.");
     }
 }

@@ -1,19 +1,7 @@
-<div class="timeline" aria-label="Event dates">
-    <div><span class="step">01</span>
-        <div><strong>Register</strong>
-            <LocalDate Value="Cycle.LockInUtc"/>
-            <small>Last chance to join &amp; edit</small></div>
-    </div>
-    <div><span class="step">02</span>
-        <div><strong>Match Drawing</strong>
-            <LocalDate Value="Cycle.DistributionUtc"/>
-            <small>Recipient details shared</small></div>
-    </div>
-    <div><span class="step">03</span>
-        <div><strong>Ship your gifts</strong>
-            <LocalDate Value="Cycle.ShipByUtc"/>
-            <small>Have your gift on its way</small></div>
-    </div>
-</div>
+<ol class="event-dates" aria-label="Event dates">
+    <li><span>Register by</span><LocalDate Value="Cycle.LockInUtc"/></li>
+    <li><span>Matches</span><LocalDate Value="Cycle.DistributionUtc"/></li>
+    <li><span>Ship by</span><LocalDate Value="Cycle.ShipByUtc"/></li>
+</ol>
 
 @code { [Parameter] [EditorRequired] public SantaCycle Cycle { get; set; } = new(); }

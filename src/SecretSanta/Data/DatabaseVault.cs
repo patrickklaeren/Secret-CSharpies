@@ -12,6 +12,7 @@ public sealed class DatabaseVault
     private string? connectionString;
     public bool IsUnlocked => Volatile.Read(ref connectionString) is not null;
     public bool IsInitialized => File.Exists(path);
+    public string BackupStatePath => path + ".r2-backup";
 
     public DatabaseVault(IConfiguration config, IHostEnvironment environment)
     {
@@ -107,6 +108,34 @@ public sealed class DatabaseVault
             await using var db = Create(connectionString);
 
             return await action(db);
+        }
+        finally
+        {
+            mutex.Release();
+        }
+    }
+
+    public async Task<byte[]?> SnapshotAsync(CancellationToken cancellationToken)
+    {
+        await mutex.WaitAsync(cancellationToken);
+        try
+        {
+            if (connectionString is null)
+                return null;
+
+            // Every app connection uses this mutex and disables pooling. With writes paused,
+            // a completed checkpoint and closed connection make the encrypted file self-contained.
+            await using (var connection = new SqliteConnection(connectionString))
+            {
+                await connection.OpenAsync(cancellationToken);
+                await using var command = connection.CreateCommand();
+                command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+                await using var result = await command.ExecuteReaderAsync(cancellationToken);
+                if (!await result.ReadAsync(cancellationToken) || result.GetInt32(0) != 0)
+                    throw new InvalidOperationException("Database is busy; backup will be retried next hour.");
+            }
+
+            return await File.ReadAllBytesAsync(path, cancellationToken);
         }
         finally
         {

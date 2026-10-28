@@ -14,6 +14,8 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DatabaseVault>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("Backup").Get<BackupOptions>() ?? new BackupOptions());
+builder.Services.AddHostedService<DatabaseBackupService>();
 builder.Services.AddSingleton<SantaService>();
 builder.Services.AddAuthorization(options => options.AddPolicy("Admin", policy =>
     policy.RequireAuthenticatedUser().RequireClaim(ClaimTypes.NameIdentifier,
