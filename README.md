@@ -1,3 +1,6 @@
+> [!NOTE]
+> Look man I just wanted funny website, don't judge me based on these vibes.
+
 # Secret CSharpies
 
 A single-event Secret Santa for a C# Discord community. .NET 10 Blazor Interactive Server, Discord OAuth2 (`identify` only), EF Core and SQLCipher-encrypted SQLite. Aspire runs Santa as a project locally and publishes it through the Dockerfile with a persistent `/db` volume.
