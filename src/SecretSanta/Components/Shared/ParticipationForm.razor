@@ -2,7 +2,24 @@
 @inject AuthenticationStateProvider Authentication
 <EditForm Model="form" OnSubmit="Submit" FormName="participation" class="participation-form">
     <div class="form-intro">
-        <h3 @ref="heading" tabindex="-1">Secret-CSharper Registration</h3></div>
+        <h3 @ref="heading" tabindex="-1">Secret-CSharper Registration</h3>
+        <button class="registration-toggle" type="button" aria-expanded="@expanded" @onclick="Toggle">@(expanded ? "Collapse" : "Expand")</button>
+    </div>
+    @if (!expanded)
+    {
+        <p class="registration-summary" role="status">
+            @if (Person.SubmittedUtc is not null)
+            {
+                <text>You’ve completed your registration! Click </text><button type="button" @onclick="Toggle">here</button><text> to edit it.</text>
+            }
+            else
+            {
+                <text>Ready to join? Click </text><button type="button" @onclick="Toggle">here</button><text> to continue your registration.</text>
+            }
+        </p>
+    }
+    else
+    {
     <ol class="form-progress" aria-label="Registration progress">
         @for (var i = 1; i <= 3; i++)
         {
@@ -122,6 +139,7 @@
         <button class="button" type="submit"
                 disabled="@busy">@(step < 3 ? "Continue →" : busy ? "Saving…" : Person.SubmittedUtc is null ? "Count me in ↗" : "Save my wish list ↗")</button>
     </div>
+    }
 </EditForm>
 
 @code {
@@ -130,11 +148,14 @@
     private Participant form = new();
     private Participant? previous;
     private bool busy, failed;
+    private bool expanded;
     private string? message;
     private int step = 1;
     private static readonly string[] StepNames = ["Preferences", "Delivery", "Wish list"];
     private ElementReference heading;
     private bool focusHeading;
+
+    private void Toggle() => expanded = !expanded;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -156,6 +177,8 @@
     {
         if (!ReferenceEquals(previous, Person))
         {
+            if (previous is null)
+                expanded = Person.SubmittedUtc is null;
             form = Person.Copy();
             previous = Person;
         }
@@ -200,6 +223,8 @@
             failed = false;
             message = "You’re on the list. Your wish list has been saved.";
             await Saved.InvokeAsync();
+            expanded = false;
+            step = 1;
         }
         catch (InvalidOperationException e)
         {

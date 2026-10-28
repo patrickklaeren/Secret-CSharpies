@@ -13,12 +13,14 @@ public sealed record AdminDashboard(SantaCycle Cycle, List<Participant> People, 
 
 public sealed class SantaService(DatabaseVault vault, IConfiguration config, TimeProvider clock, IMemoryCache cache)
 {
+    private const string ParticipantAvatarCacheKey = "ParticipantAvatarUrls";
+
     public async Task<string?> RandomParticipantAvatarAsync()
     {
         if (!vault.IsUnlocked)
             return null;
 
-        var avatars = await cache.GetOrCreateAsync("ParticipantAvatarUrls", entry =>
+        var avatars = await cache.GetOrCreateAsync(ParticipantAvatarCacheKey, entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(4);
             return vault.UseAsync(db => db.Participants
@@ -103,6 +105,7 @@ public sealed class SantaService(DatabaseVault vault, IConfiguration config, Tim
         person.SubmittedUtc ??= clock.GetUtcNow().UtcDateTime;
         person.UpdatedUtc = clock.GetUtcNow().UtcDateTime;
         await db.SaveChangesAsync();
+        cache.Remove(ParticipantAvatarCacheKey);
 
         return true;
     });

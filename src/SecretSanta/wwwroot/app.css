@@ -1119,6 +1119,40 @@ dd {
     margin: 0
 }
 
+.account-menu {
+    position: relative
+}
+
+.account-menu-trigger {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit
+}
+
+.account-menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    padding-top: 6px
+}
+
+.account-menu:hover .account-menu-dropdown, .account-menu:focus-within .account-menu-dropdown {
+    display: block
+}
+
+.account-menu-dropdown button {
+    white-space: nowrap;
+    padding: 14px 24px;
+    border: 1px solid #c4eaff40;
+    border-radius: 8px;
+    background: #16384c;
+    color: #fff3d6;
+    font-size: 1.125rem
+}
+
 .present-button {
     display: flex;
     flex-direction: row;
@@ -1127,7 +1161,7 @@ dd {
     border: 1px solid #c4eaff40;
     border-radius: 8px;
     background: #16384c66;
-    padding: 8px 12px;
+    padding: 14px 24px;
     color: inherit;
     text-decoration: none;
     cursor: pointer;
@@ -1136,14 +1170,14 @@ dd {
 
 .present-button > span:first-child {
     font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;
-    font-size: 1rem;
+    font-size: 1.125rem;
     line-height: 1.15;
     filter: drop-shadow(0 3px 8px #00151c60)
 }
 
 .present-label {
     font-family: inherit;
-    font-size: .8125rem;
+    font-size: 1rem;
     line-height: 1.4;
     color: #fff3d6;
     text-shadow: 0 2px 8px #00151c
@@ -1246,6 +1280,26 @@ dd {
     font-size: clamp(1.4rem, 2.5vw, 1.75rem);
     letter-spacing: -.025em;
     line-height: 1.3
+}
+
+.participation-form .form-intro {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px
+}
+
+.registration-toggle, .registration-summary button {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: #c2eaff;
+    text-decoration: underline
+}
+
+.registration-summary {
+    margin: 28px 0 12px;
+    text-align: center
 }
 
 .participation-form fieldset.with-subheader {
@@ -1357,18 +1411,34 @@ dd {
     top: 20px;
     left: 28px;
     display: flex;
-    gap: 24px;
+    gap: 0;
     margin: 0;
-    padding: 0;
+    padding: 10px 14px;
     list-style: none;
     color: #edf8ff;
+    background: #102f40d9;
+    border: 1px solid #c4eaff40;
+    border-radius: 10px;
     text-shadow: 0 1px 8px #00151c
 }
 
 .event-dates li {
     display: grid;
     gap: 4px;
+    padding: 0 14px;
     font-size: .75rem
+}
+
+.event-dates li:first-child {
+    padding-left: 0
+}
+
+.event-dates li:last-child {
+    padding-right: 0
+}
+
+.event-dates li + li {
+    border-left: 1px solid #c4eaff40
 }
 
 .event-dates span {
@@ -1378,7 +1448,7 @@ dd {
 
 #participation {
     max-width: 640px;
-    padding: 88px 0 24px
+    padding: 104px 0 24px
 }
 
 #participation .participation-form {
@@ -1473,12 +1543,11 @@ dd {
 
     .event-dates {
         left: 18px;
-        top: 72px;
-        gap: 20px
+        top: 72px
     }
 
     #participation {
-        padding-top: 132px
+        padding-top: 152px
     }
 
     #participation .participation-form {
