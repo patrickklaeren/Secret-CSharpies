@@ -2,15 +2,22 @@
 <nav class="account-controls" aria-label="Account">
     <AuthorizeView Context="auth">
         <Authorized>
-            @if (auth.User.FindFirstValue("avatar") is { } avatar)
-            {
-                <img class="account-avatar" src="@avatar" alt="@($"{auth.User.Identity?.Name}’s Discord avatar")" width="72" height="72"/>
-            }
-            <form method="post" action="/auth/logout">
-                <AntiforgeryToken/>
-                <button class="present-button" type="submit" aria-label="Sign out" title="Sign out"><span aria-hidden="true">🎁</span><span
-                        class="present-label">Sign out</span></button>
-            </form>
+            <div class="account-menu">
+                <button class="account-menu-trigger" type="button" aria-label="Account menu">
+                    @if (auth.User.FindFirstValue("avatar") is { } avatar)
+                    {
+                        <img class="account-avatar" src="@avatar" alt="" width="72" height="72"/>
+                    }
+                    else
+                    {
+                        <span>@(auth.User.Identity?.Name ?? "Account")</span>
+                    }
+                </button>
+                <form class="account-menu-dropdown" method="post" action="/auth/logout">
+                    <AntiforgeryToken/>
+                    <button type="submit">Sign out</button>
+                </form>
+            </div>
             @if (Santa.IsAdmin(auth.User) && !ShowExchange)
             {
                 <a class="account-link" href="/">Admin</a>
