@@ -1,9 +1,20 @@
+@inject NavigationManager Navigation
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <meta name="theme-color" content="#102728"/>
+    <meta name="description" content="'tis the season and all that - send and receive gifts!"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:title" content="Secret CSharpers"/>
+    <meta property="og:description" content="'tis the season and all that - send and receive gifts!"/>
+    <meta property="og:url" content="@Navigation.BaseUri"/>
+    <meta property="og:image" content="@(new Uri(new Uri(Navigation.BaseUri), "assets/social-preview.png"))"/>
+    <meta property="og:image:type" content="image/png"/>
+    <meta property="og:image:width" content="1021"/>
+    <meta property="og:image:height" content="390"/>
+    <meta property="og:image:alt" content="Secret CSharpers: 'tis the season and all that - send and receive gifts!"/>
     <base href="/"/>
     <link rel="icon" type="image/webp" href="@Assets["assets/csharp-christmas.webp"]"/>
     <link rel="stylesheet" href="@Assets["app.css"]"/>

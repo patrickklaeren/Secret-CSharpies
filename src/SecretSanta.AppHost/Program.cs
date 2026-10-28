@@ -3,6 +3,7 @@ using Projects;
 var builder = DistributedApplication.CreateBuilder(args);
 var clientId = builder.AddParameter("discord-client-id", true);
 var clientSecret = builder.AddParameter("discord-client-secret", true);
+var signupWebhook = builder.AddParameter("discord-signup-webhook-url", "", secret: true);
 var adminDiscordId = builder.AddParameter("admin-discord-id");
 var databasePassword = builder.AddParameter("database-password", "", secret: true);
 var backupEndpoint = builder.AddParameter("backup-endpoint", "");
@@ -13,6 +14,7 @@ var backupSecretAccessKey = builder.AddParameter("backup-secret-access-key", "",
 builder.AddProject<SecretSanta>("secret-santa", "https")
     .WithEnvironment("Discord__ClientId", clientId)
     .WithEnvironment("Discord__ClientSecret", clientSecret)
+    .WithEnvironment("Discord__SignupWebhookUrl", signupWebhook)
     .WithEnvironment("AdminDiscordId", adminDiscordId)
     .WithEnvironment("Database__Password", databasePassword)
     .WithEnvironment("Backup__Endpoint", backupEndpoint)

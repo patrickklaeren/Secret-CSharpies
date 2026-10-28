@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using SecretSanta.Data;
@@ -11,9 +12,10 @@ public sealed record Dashboard(Participant Person, SantaCycle Cycle, ShipmentVie
 
 public sealed record AdminDashboard(SantaCycle Cycle, List<Participant> People, List<GiftMatch> Matches);
 
-public sealed class SantaService(DatabaseVault vault, IConfiguration config, TimeProvider clock, IMemoryCache cache)
+public sealed class SantaService(DatabaseVault vault, IConfiguration config, TimeProvider clock, IMemoryCache cache, ILogger<SantaService> logger)
 {
     private const string ParticipantAvatarCacheKey = "ParticipantAvatarUrls";
+    private static readonly HttpClient WebhookClient = new() { Timeout = TimeSpan.FromSeconds(10) };
 
     public async Task<string?> RandomParticipantAvatarAsync()
     {
@@ -74,8 +76,10 @@ public sealed class SantaService(DatabaseVault vault, IConfiguration config, Tim
             distributed ? View(await db.Matches.SingleOrDefaultAsync(m => m.RecipientId == id)) : null);
     });
 
-    public Task<bool> SaveParticipationAsync(ClaimsPrincipal user, Participant form) => vault.UseAsync(async db =>
+    public async Task<bool> SaveParticipationAsync(ClaimsPrincipal user, Participant form)
     {
+        var firstSignup = await vault.UseAsync(async db =>
+        {
         var id = Id(user);
         var cycle = await db.Cycles.SingleAsync();
 
@@ -102,13 +106,40 @@ public sealed class SantaService(DatabaseVault vault, IConfiguration config, Tim
         person.ContactNotes = form.ContactNotes.Trim();
         person.Bio = form.Bio.Trim();
         person.Consent = form.Consent;
+        var firstSignup = person.SubmittedUtc is null;
         person.SubmittedUtc ??= clock.GetUtcNow().UtcDateTime;
         person.UpdatedUtc = clock.GetUtcNow().UtcDateTime;
         await db.SaveChangesAsync();
         cache.Remove(ParticipantAvatarCacheKey);
 
+        return firstSignup;
+        });
+
+        if (firstSignup && config["Discord:SignupWebhookUrl"] is { Length: > 0 } webhook)
+        {
+            if (Uri.TryCreate(webhook, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps)
+            {
+                try
+                {
+                    using var response = await WebhookClient.PostAsJsonAsync(uri, new
+                    {
+                        content = $"{user.Identity!.Name} has signed up to be a secret Santa!",
+                        allowed_mentions = new { parse = Array.Empty<string>() }
+                    });
+                    if (!response.IsSuccessStatusCode)
+                        logger.LogWarning("Discord signup notification failed with status {StatusCode}", (int)response.StatusCode);
+                }
+                catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+                {
+                    logger.LogWarning("Discord signup notification could not be sent.");
+                }
+            }
+            else
+                logger.LogWarning("Discord signup webhook URL must be an absolute HTTPS URL.");
+        }
+
         return true;
-    });
+    }
 
     public Task<bool> SaveShipmentAsync(ClaimsPrincipal user, ShipmentStatus status, DateOnly? eta) => vault.UseAsync(async db =>
     {
